@@ -2,7 +2,7 @@
 const API="https://lumen-digital-checkout.ccoliveira1.workers.dev";
 const BUNDLE_ID="art-justice-four-16k";
 const expectedPrice=sku=>sku===BUNDLE_ID?47.90:24.90;
-const SKU=/^art-justice-(?:0[1-4]-[a-z0-9-]+|four-16k)$/;
+const SKU=/^art-justice-(?:(?:0[1-9]|10)-[a-z0-9-]+|four-16k)$/;
 const el=id=>document.getElementById(id);
 const triggers=[...document.querySelectorAll(".checkout-trigger")];
 const backdrop=el("checkoutBackdrop"),dialog=el("checkoutDialog"),message=el("checkoutMessage"),galleryStatus=el("galleryCheckoutStatus");
