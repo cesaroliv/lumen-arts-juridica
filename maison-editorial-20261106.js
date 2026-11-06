@@ -69,6 +69,29 @@ b.addEventListener("keydown",e=>{let index=null;if(e.key==="ArrowRight")index=i+
 });
 buttons.forEach(b=>b.addEventListener("click",()=>changeRoom(b.dataset.room)));
 choose(0,false,false);
+// The supplied promotional visual contains three printed room tabs and ten preview tiles.
+// Make those exact visible regions functional without editing or faking the approved image.
+const promo=document.querySelector(".reference-promo");
+promo?.addEventListener("click",event=>{
+ if(window.matchMedia("(max-width: 650px)").matches || !event.isTrusted || event.detail===0)return;
+ const rect=promo.getBoundingClientRect();
+ const x=(event.clientX-rect.left)/Math.max(1,rect.width),y=(event.clientY-rect.top)/Math.max(1,rect.height);
+ let targetRoom=null,artIndex=null;
+ if(y>=0.324&&y<=0.391){
+   if(x>=0.035&&x<=0.19)targetRoom="wall";
+   else if(x>=0.194&&x<=0.311)targetRoom="office";
+   else if(x>=0.314&&x<=0.423)targetRoom="desk";
+ }
+ if(y>=0.674&&y<=0.852&&x>=0.174&&x<=0.936){
+   artIndex=Math.min(9,Math.max(0,Math.floor((x-0.174)/((0.936-0.174)/10))));
+ }
+ if(targetRoom!==null||artIndex!==null){
+    event.preventDefault();event.stopImmediatePropagation();
+    if(targetRoom)void changeRoom(targetRoom);
+    if(artIndex!==null)choose(artIndex,false,true);
+    root.scrollIntoView({behavior:reduced.matches?"instant":"smooth",block:"start"});
+ }
+},true);
 const cardWidth=()=>items[0]?.getBoundingClientRect().width||300;
 function move(direction){if(!slider)return;slider.scrollBy({left:direction*(cardWidth()+parseFloat(getComputedStyle(slider.querySelector(".art-grid")).gap||"24")*1.1),behavior:reduced.matches?"instant":"smooth"});}
 document.getElementById("maison-previous")?.addEventListener("click",()=>move(-1));
