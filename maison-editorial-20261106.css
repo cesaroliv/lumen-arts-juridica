@@ -127,3 +127,18 @@ footer .foot-brand{color:#f8e6cf!important}footer .foot-brand span{color:#d0a26e
 @media(max-width:650px){.maison-room-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;overflow:visible!important}.maison-room-option{min-width:0!important;width:100%;padding:13px 6px!important;border-right:1px solid #c6b293}.maison-room-option:last-child{border-right:0}.maison-room-option strong{font-size:clamp(17px,4.7vw,22px);overflow-wrap:anywhere}.maison-room-option small{display:none}.maison-room-option.is-current{padding-left:8px!important}}
 /* Reset inherited position constraints on artwork index tags inside the horizontal gallery. */
 .maison-catalogue .art-card .art-figure .art-number{inset:auto auto 20px 20px!important;top:auto!important;right:auto!important;bottom:20px!important;left:20px!important;width:auto!important;height:auto!important;min-height:0!important;max-height:none!important;padding:7px 10px!important;display:inline-flex!important;align-items:center!important;justify-content:center!important;line-height:1.15!important;transform:none!important;}
+/* The original checkout stays operational; only its studio chrome adopts the walnut/champagne palette. */
+#checkoutDialog{background:#fffaf3;color:#392c20}
+#checkoutDialog .checkout-header{background:#352419!important;border-bottom-color:#cda46a!important}
+#checkoutDialog .checkout-label{color:#e8c68c!important}
+#checkoutDialog .checkout-close{color:#f8e9d1!important;border-color:#c6a57394!important;background:#7e624e40}
+#checkoutDialog .checkout-close:hover{background:#a6865b5c!important}
+#checkoutDialog .checkout-body{background:#fffaf3}
+#checkoutDialog .checkout-summary{background:#f1e7d8!important;border-left-color:#b18755!important}
+#checkoutDialog .payment-message.note{background:#f7ecdd!important;color:#61452d!important;border-left-color:#b68c57!important}
+#checkoutDialog #checkoutSuccess{background:#f6ecdd!important;border-color:#c6a778!important}
+#checkoutDialog #checkoutSuccess h3{color:#4a3220!important}
+#checkoutDialog #checkoutSuccess p{color:#64503f!important}
+#checkoutDialog .checkout-download{background:#493020!important;color:#fff1df!important}
+#checkoutDialog .checkout-download:hover{background:#6d4728!important}
+#checkoutDialog .checkout-privacy a{color:#744921!important}
