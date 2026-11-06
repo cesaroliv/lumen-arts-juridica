@@ -84,6 +84,8 @@ async function showStatus(id,token){
 }
 async function open(sku){
  if(opening||!SKU.test(sku))return;
+ const pending=pendingOrder();
+ if(pending&&pending.sku===sku){await resumePendingOrder();return;}
  opening=true;currentSku=sku;epoch++;paymentId="";orderAccess="";submitting=false;
  openDisplay();
  el("statusArea").hidden=true;el("checkoutSuccess").hidden=true;el("paymentBrick_container").hidden=false;
@@ -121,10 +123,37 @@ async function open(sku){
  }catch(e){setMessage(e.message||"Pagamento temporariamente indisponível. Nenhuma cobrança foi realizada.","error");}
  finally{opening=false;}
 }
+function pendingOrder(){
+ try{
+  const r=sessionStorage.getItem("juridica-order-pending");if(!r)return null;
+  const x=JSON.parse(r);
+  if(!x||!/^\\d+$/.test(String(x.id))||!SKU.test(String(x.sku))||!/^[a-f0-9]{64}$/.test(String(x.token))||!Number.isFinite(Number(x.at))||Date.now()-Number(x.at)>72*60*60*1000){
+    sessionStorage.removeItem("juridica-order-pending");return null;
+  }
+  return x;
+ }catch{return null;}
+}
+async function resumePendingOrder(){
+ const previous=pendingOrder();
+ if(!previous||!backdrop.hidden||!config?.products?.[previous.sku])return;
+ currentSku=previous.sku;paymentId=String(previous.id);orderAccess=previous.token;
+ opening=true;epoch++;openDisplay();
+ el("checkoutProductName").textContent=config.products[previous.sku].name;
+ el("checkoutProductPrice").textContent=money(config.products[previous.sku].price);
+ el("paymentBrick_container").hidden=true;el("statusArea").hidden=true;el("checkoutSuccess").hidden=true;
+ setMessage("Retomando o pagamento anterior para evitar cobranças duplicadas…","note");
+ try{
+  const status=await queryPayment(paymentId,orderAccess);
+  if(status==="pending")await showStatus(paymentId,orderAccess);
+ }catch(e){
+  setMessage("Estamos consultando a situação do pedido anterior. Não inicie uma nova cobrança enquanto ele estiver pendente.","note");
+  await showStatus(paymentId,orderAccess);
+ }finally{opening=false;}
+}
 triggers.forEach(b=>b.addEventListener("click",()=>open(b.dataset.sku)));
 el("checkoutClose").addEventListener("click",close);
 backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
 document.addEventListener("keydown",e=>{if(backdrop.hidden)return;if(e.key==="Escape"){e.preventDefault();close();}if(e.key==="Tab"){const els=[...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled])')].filter(x=>x.offsetParent!==null);if(!els.length)return;const first=els[0],last=els[els.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 setBusy(true,"Verificando pagamento seguro…");
-readConfig().then(()=>setBusy(false,"Compra segura disponível aqui mesmo, via Mercado Pago.")).catch(err=>{setBusy(true,"Pagamento temporariamente indisponível. "+(err.message||"Tente novamente."));});
+readConfig().then(async()=>{setBusy(false,"Compra segura disponível aqui mesmo, via Mercado Pago.");await resumePendingOrder();}).catch(err=>{setBusy(true,"Pagamento temporariamente indisponível. "+(err.message||"Tente novamente."));});
 })();
