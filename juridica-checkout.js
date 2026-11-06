@@ -127,7 +127,7 @@ function pendingOrder(){
  try{
   const r=sessionStorage.getItem("juridica-order-pending");if(!r)return null;
   const x=JSON.parse(r);
-  if(!x||!/^\\d+$/.test(String(x.id))||!SKU.test(String(x.sku))||!/^[a-f0-9]{64}$/.test(String(x.token))||!Number.isFinite(Number(x.at))||Date.now()-Number(x.at)>72*60*60*1000){
+  if(!x||!/^\d+$/.test(String(x.id))||!SKU.test(String(x.sku))||!/^[a-f0-9]{64}$/.test(String(x.token))||!Number.isFinite(Number(x.at))||Date.now()-Number(x.at)>72*60*60*1000){
     sessionStorage.removeItem("juridica-order-pending");return null;
   }
   return x;
