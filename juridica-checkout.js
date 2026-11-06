@@ -1,7 +1,8 @@
 (()=>{"use strict";
 const API="https://lumen-digital-checkout.ccoliveira1.workers.dev";
-const PRICE=24.90;
-const SKU=/^art-justice-0[1-4]-[a-z0-9-]+$/;
+const BUNDLE_ID="art-justice-four-16k";
+const expectedPrice=sku=>sku===BUNDLE_ID?47.90:24.90;
+const SKU=/^art-justice-(?:0[1-4]-[a-z0-9-]+|four-16k)$/;
 const el=id=>document.getElementById(id);
 const triggers=[...document.querySelectorAll(".checkout-trigger")];
 const backdrop=el("checkoutBackdrop"),dialog=el("checkoutDialog"),message=el("checkoutMessage"),galleryStatus=el("galleryCheckoutStatus");
@@ -9,13 +10,13 @@ const setMessage=(s,type="")=>{message.textContent=s||"";message.className="paym
 let mp=null,bricks=null,config=null,paymentController=null,statusController=null;
 let currentSku="",paymentId="",orderAccess="",timer=null,epoch=0,opening=false,submitting=false,lastFocus=null;
 const money=n=>Number(n).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-const setBusy=(state,info)=>{triggers.forEach(b=>b.disabled=state);galleryStatus.textContent=info||"";};
+const setBusy=(state,info)=>{triggers.forEach(b=>b.disabled=state);galleryStatus.textContent=info||"";const offerStatus=el("bundleCheckoutStatus");if(offerStatus)offerStatus.textContent=info||"";};
 async function readConfig(){
  const r=await fetch(API+"/api/config",{headers:{accept:"application/json"},cache:"no-store"});
  if(!r.ok)throw Error("Não foi possível consultar o pagamento.");
  const c=await r.json();
  if(!c.publicKey||!c.individualSalesEnabled||!["BRL"].includes(c.currency))throw Error("Pagamento indisponível.");
- for(const b of triggers){const sku=b.dataset.sku;if(!SKU.test(sku)||Math.abs(Number(c.products?.[sku]?.price)-PRICE)>.001)throw Error("Preço indisponível. Nenhuma cobrança será iniciada.");}
+ for(const b of triggers){const sku=b.dataset.sku;if(!SKU.test(sku)||Math.abs(Number(c.products?.[sku]?.price)-expectedPrice(sku))>.001)throw Error("Preço indisponível. Nenhuma cobrança será iniciada.");}
  if(!window.MercadoPago)throw Error("O módulo de pagamento seguro não carregou.");
  config=c; if(!mp){mp=new MercadoPago(config.publicKey,{locale:"pt-BR"});bricks=mp.bricks();}
  return c;
@@ -57,7 +58,7 @@ async function queryPayment(id,token){
  if(!r.ok)throw Error("Não foi possível consultar o pagamento.");
  const data=await r.json();
  if(data.product?.id!==currentSku)throw Error("Identificação da obra divergente.");
- if(data.status==="approved"){if(Math.abs(Number(data.amount)-PRICE)>.001)throw Error("Valor aprovado divergente.");approved(data);return "approved";}
+ if(data.status==="approved"){if(Math.abs(Number(data.amount)-expectedPrice(currentSku))>.001)throw Error("Valor aprovado divergente.");approved(data);return "approved";}
  if(["rejected","cancelled","refunded","charged_back"].includes(data.status)){
   setMessage("Pagamento não aprovado. Você pode fechar esta janela e tentar novamente se desejar.","error");return "failed";
  }
