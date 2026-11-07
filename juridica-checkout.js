@@ -17,6 +17,8 @@ function localeKey(raw){const s=String(raw||"").trim().toLowerCase();return /^pt
 function findCheckoutLanguage(){
  const params=new URLSearchParams(location.search);
  const explicit=localeKey(params.get("lang"))||localeKey(params.get("locale"));if(explicit)return explicit;
+ const pathLocale=/^\/(?:en|es)\/?$/.test(location.pathname)?localeKey(document.documentElement.lang):null;
+ if(pathLocale)return pathLocale;
  for(const l of [...(navigator.languages||[]),navigator.language]){const value=localeKey(l);if(value)return value;}
  return "en";
 }
