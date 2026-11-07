@@ -4,7 +4,7 @@ const root=document.getElementById("ambientes");
 if(!root)return;
 const scene=document.getElementById("maison-room");
 const sceneImage=document.getElementById("maison-room-scene");
-const artImage=document.getElementById("maison-room-art");
+
 const sceneName=document.getElementById("maison-scene-name");
 const selectionTitle=document.getElementById("maison-selection-title");
 const selectionIndex=document.getElementById("maison-selection-index");
@@ -30,7 +30,7 @@ const description=card?.querySelector(".card-body>p")?.textContent?.trim();
 return {sku,i,image:image?.getAttribute("src"),name,description};
 });
 if(arts.length!==10||arts.some(x=>!x.sku||!x.name||!x.image||!x.description)||new Set(arts.map(x=>x.sku)).size!==10){console.warn("O visualizador não encontrou as dez obras atuais.");return;}
-let selected=0,roomName="wall",roomNonce=0;
+let selected=0,roomName="wall",sceneNonce=0;
 function updateDescription(){
 scene.setAttribute("aria-label","Prévia ilustrativa de "+arts[selected].name+" "+rooms[roomName].desc);
 }
@@ -38,7 +38,7 @@ function choose(index,focus,fromUser){
 selected=(index+arts.length)%arts.length;
 const art=arts[selected];
 selectors.forEach((btn,i)=>{const active=i===selected;btn.classList.toggle("is-selected",active);btn.setAttribute("aria-pressed",String(active));});
-artImage.src=art.image;artImage.alt="";
+void renderComposedScene();
 selectionTitle.textContent=art.name;
 selectionIndex.textContent=String(selected+1).padStart(2,"0")+" / 10";
 selectionSubtitle.textContent=art.description;
@@ -48,20 +48,26 @@ updateDescription();
 if(focus)selectors[selected].focus({preventScroll:true});
 if(fromUser)selectors[selected].scrollIntoView({behavior:reduced.matches?"instant":"smooth",inline:"nearest",block:"nearest"});
 }
-async function changeRoom(next){
-if(!rooms[next]||roomName===next)return;
-roomName=next;const token=++roomNonce;const data=rooms[next];
-buttons.forEach(b=>{const active=b.dataset.room===next;b.setAttribute("aria-pressed",String(active));b.classList.toggle("is-current",active);});
-scene.classList.add("is-switching");
-const preload=new Image();
-preload.src=data.src;
-try{await preload.decode();}catch{}
-if(token!==roomNonce)return;
-scene.className="maison-room maison-room--"+next;
-sceneImage.src=data.src;sceneImage.width=data.width;sceneImage.height=data.height;
-sceneName.textContent=data.name;
-updateDescription();
-window.requestAnimationFrame(()=>{scene.classList.remove("is-switching");});
+async function renderComposedScene(){
+ const current=++sceneNonce,room=roomName,art=arts[selected],config=rooms[room];
+ const url="assets/maison-framed/maison-framed-"+room+"-"+art.sku+".webp";
+ scene.classList.add("is-switching");
+ const preview=new Image();preview.src=url;
+ try{await preview.decode();}catch(e){
+   if(current===sceneNonce)scene.classList.remove("is-switching");
+   console.warn("Não foi possível carregar a prévia emoldurada selecionada.",e);return;
+ }
+ if(current!==sceneNonce)return;
+ sceneImage.src=url;sceneImage.width=config.width;sceneImage.height=config.height;
+ sceneName.textContent=config.name;
+ scene.className="maison-room maison-room--"+room;
+ updateDescription();
+}
+function changeRoom(next){
+ if(!rooms[next]||roomName===next)return;
+ roomName=next;
+ buttons.forEach(b=>{const active=b.dataset.room===next;b.setAttribute("aria-pressed",String(active));b.classList.toggle("is-current",active);});
+ void renderComposedScene();
 }
 selectors.forEach((b,i)=>{
 b.addEventListener("click",()=>choose(i,false,true));
