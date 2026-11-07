@@ -140,6 +140,7 @@ async function open(sku){
  const pending=pendingOrder();
  if(pending&&pending.sku===sku){await resumePendingOrder();return;}
  opening=true;currentSku=sku;epoch++;paymentId="";orderAccess="";submitting=false;
+ if(config?.products?.[sku]){el("checkoutProductName").textContent=productLabel(sku,config.products[sku]);el("checkoutProductPrice").textContent=money(config.products[sku].price);}
  openDisplay();
  el("statusArea").hidden=true;el("checkoutSuccess").hidden=true;el("paymentBrick_container").hidden=false;
  setMessage("Conectando ao Mercado Pago…","note");
