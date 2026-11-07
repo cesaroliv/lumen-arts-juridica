@@ -41,6 +41,13 @@ function applyLanguage(){
  const picker=el("checkoutLanguage");picker.value=language;picker.setAttribute("aria-label",tr("languageLabel"));
  el("checkoutClose").setAttribute("aria-label",tr("close"));
  for(const node of dialog.querySelectorAll("[data-checkout-i18n]"))node.textContent=tr(node.dataset.checkoutI18n);
+ for(const legalLink of dialog.querySelectorAll(".checkout-privacy a")){
+  const base=legalLink.href.includes("terms.html")?tr("terms"):tr("privacy");
+  const suffix=language==="pt"?" (em inglês)":language==="es"?" (en inglés)":"";
+  legalLink.textContent=base+suffix;
+  legalLink.setAttribute("hreflang","en");
+  legalLink.setAttribute("lang","en");
+ }
  if(config?.products?.[currentSku]){el("checkoutProductName").textContent=productLabel(currentSku,config.products[currentSku]);el("checkoutProductPrice").textContent=money(config.products[currentSku].price);}
  if(!message.hidden)message.textContent=translated(message.dataset.originalText||message.textContent);
 }
