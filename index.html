@@ -14,7 +14,7 @@
   <link rel="canonical" href="https://juridica.lumenanima.com/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css?v=1">
-<link rel="stylesheet" href="juridica-checkout.css?v=20261106-01">
+<link rel="stylesheet" href="juridica-checkout.css?v=20261107-i18n1">
 <link rel="stylesheet" href="cinematic-landing.css?v=20261106-v1">
 <link rel="stylesheet" href="justice-expansion-20261106.css?v=1">
 <link rel="stylesheet" href="maison-editorial-20261106.css?v=4">
@@ -168,22 +168,32 @@
 <div class="checkout-backdrop" id="checkoutBackdrop" hidden>
   <section class="checkout-dialog" id="checkoutDialog" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle" tabindex="-1">
     <header class="checkout-header">
-      <div><div class="checkout-label">LUMEN ARTS · FINALIZAÇÃO SEGURA</div><h2 id="checkoutTitle">Pagamento seguro</h2></div>
-      <button class="checkout-close" id="checkoutClose" type="button" aria-label="Fechar pagamento">×</button>
+      <div class="checkout-heading">
+        <div class="checkout-label" data-checkout-i18n="secureTag">LUMEN ARTS · FINALIZAÇÃO SEGURA</div>
+        <h2 id="checkoutTitle" data-checkout-i18n="secureTitle">Pagamento seguro</h2>
+      </div>
+      <div class="checkout-header-actions">
+        <label class="checkout-lang-label" for="checkoutLanguage" data-checkout-i18n="languageLabel">Idioma</label>
+        <select id="checkoutLanguage" class="checkout-language-select" aria-label="Idioma do pagamento">
+          <option value="pt">Português</option><option value="en">English</option><option value="es">Español</option>
+        </select>
+        <button class="checkout-close" id="checkoutClose" type="button" aria-label="Fechar pagamento">×</button>
+      </div>
     </header>
     <div class="checkout-body">
-      <div class="checkout-summary"><div><strong id="checkoutProductName">Master digital 16K</strong><span class="checkout-brand">Lumen Arts · Entrega digital após aprovação</span></div><strong class="checkout-summary-price" id="checkoutProductPrice">R$ 24,90</strong></div>
+      <div class="checkout-summary"><div><strong id="checkoutProductName">Master digital 16K</strong><span class="checkout-brand" data-checkout-i18n="delivery">Lumen Arts · Entrega digital após aprovação</span></div><strong class="checkout-summary-price" id="checkoutProductPrice">R$ 24,90</strong></div>
+      <p class="checkout-currency-note" data-checkout-i18n="currencyNote">Cobrança em reais (BRL). Os meios disponíveis dependem do cartão e da sua localização.</p>
       <p class="payment-message note" id="checkoutMessage" role="status" aria-live="polite"></p>
       <div id="paymentBrick_container"></div>
       <div id="statusArea" hidden><div id="statusScreenBrick_container"></div></div>
       <div id="checkoutSuccess" hidden></div>
-      <p class="checkout-privacy">Pagamento processado pelo Mercado Pago. Seus dados de pagamento são tratados pelo provedor. <a href="https://lumenanima.com/terms.html" target="_blank" rel="noopener noreferrer">Termos</a> · <a href="https://lumenanima.com/privacy.html" target="_blank" rel="noopener noreferrer">Privacidade</a></p>
+      <p class="checkout-privacy"><span data-checkout-i18n="privacyLead">Pagamento processado pelo Mercado Pago. Seus dados de pagamento são tratados pelo provedor.</span> <a href="https://lumenanima.com/terms.html" target="_blank" rel="noopener noreferrer" data-checkout-i18n="terms">Termos</a> · <a href="https://lumenanima.com/privacy.html" target="_blank" rel="noopener noreferrer" data-checkout-i18n="privacy">Privacidade</a></p>
     </div>
   </section>
 </div>
 <script defer src="https://sdk.mercadopago.com/js/v2"></script>
 <script defer src="https://www.mercadopago.com/v2/security.js" view="item"></script>
-<script defer src="juridica-checkout.js?v=20261106-06"></script>
+<script defer src="juridica-checkout.js?v=20261107-i18n1"></script>
 <script defer src="cinematic-motion.js?v=20261106-v1"></script>
 <script defer src="maison-editorial-20261106.js?v=4"></script>
 </body></html>

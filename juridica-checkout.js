@@ -6,10 +6,60 @@ const SKU=/^art-justice-(?:(?:0[1-9]|10)-[a-z0-9-]+|four-16k)$/;
 const el=id=>document.getElementById(id);
 const triggers=[...document.querySelectorAll(".checkout-trigger")];
 const backdrop=el("checkoutBackdrop"),dialog=el("checkoutDialog"),message=el("checkoutMessage"),galleryStatus=el("galleryCheckoutStatus");
-const setMessage=(s,type="")=>{message.textContent=s||"";message.className="payment-message "+type;message.hidden=!s;};
+const setMessage=(s,type="")=>{message.dataset.originalText=String(s||"");message.textContent=translated(s);message.className="payment-message "+type;message.hidden=!s;};
 let mp=null,bricks=null,config=null,paymentController=null,statusController=null;
 let currentSku="",paymentId="",orderAccess="",timer=null,epoch=0,opening=false,submitting=false,lastFocus=null;
-const money=n=>Number(n).toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
+
+const CHECKOUT_I18N={"pt":{"secureTag":"LUMEN ARTS · FINALIZAÇÃO SEGURA","secureTitle":"Pagamento seguro","delivery":"Lumen Arts · Entrega digital após aprovação","currencyNote":"Cobrança em reais (BRL). Os meios disponíveis dependem do cartão e da sua localização.","privacyLead":"Pagamento processado pelo Mercado Pago. Seus dados de pagamento são tratados pelo provedor.","terms":"Termos","privacy":"Privacidade","close":"Fechar pagamento","languageLabel":"Idioma do pagamento","bundle":"Coleção Justiça Dourada — 10 masters digitais 16K","artSuffix":"obra digital 16K"},"en":{"secureTag":"LUMEN ARTS · SECURE CHECKOUT","secureTitle":"Secure payment","delivery":"Lumen Arts · Digital delivery after approval","currencyNote":"Charged in Brazilian reais (BRL). Payment methods depend on your card issuer and location.","privacyLead":"Payments are processed by Mercado Pago. The provider handles payment data.","terms":"Terms","privacy":"Privacy","close":"Close payment","languageLabel":"Payment language","bundle":"Justiça Dourada Collection — 10 digital 16K masters","artSuffix":"16K digital artwork"},"es":{"secureTag":"LUMEN ARTS · PAGO SEGURO","secureTitle":"Pago seguro","delivery":"Lumen Arts · Entrega digital tras la aprobación","currencyNote":"Cobro en reales brasileños (BRL). Los métodos disponibles dependen del emisor de tu tarjeta y de tu ubicación.","privacyLead":"Mercado Pago procesa el pago. El proveedor gestiona los datos de pago.","terms":"Términos","privacy":"Privacidad","close":"Cerrar pago","languageLabel":"Idioma del pago","bundle":"Colección Justiça Dourada — 10 archivos digitales 16K","artSuffix":"obra digital 16K"}};
+const CHECKOUT_STATUS_I18N={"en":{"Verificando pagamento seguro…":"Checking secure payment…","Compra segura disponível aqui mesmo, via Mercado Pago.":"Secure payment is available here via Mercado Pago.","Conectando ao Mercado Pago…":"Connecting to Mercado Pago…","Pagamento aprovado!":"Payment approved!","Sua edição digital está disponível para download. Uma confirmação também pode chegar ao e-mail informado no pagamento.":"Your digital artwork is ready to download. Confirmation may also arrive by email.","Baixar":"Download","sua obra":"your artwork","O pagamento foi aprovado, mas ainda não foi possível liberar o arquivo nesta tela. Entre em contato com nosso suporte.":"Payment approved, but the download isn't available on this screen yet. Please contact support.","Pagamento não aprovado. Você pode fechar esta janela e tentar novamente se desejar.":"Payment not approved. You can close this window and try again.","Pedido criado. A confirmação está sendo consultada; não faça outro pagamento.":"Order created. Checking confirmation; please do not pay twice.","Pagamento aguardando confirmação. Guarde o comprovante; uma confirmação também poderá chegar por e-mail.":"Waiting for payment confirmation. Please keep your receipt.","Pedido iniciado. Aguardando confirmação do Mercado Pago…":"Order created. Awaiting Mercado Pago confirmation…","Pedido criado. Estamos verificando a confirmação do pagamento.":"Order created. Checking payment confirmation.","Pedido iniciado. Estamos verificando a confirmação, não é necessário repetir o pagamento.":"We are checking your order. Please do not pay again.","Não foi possível carregar essa opção. Selecione outro meio de pagamento.":"This payment option could not load. Please select another.","Retomando o pagamento anterior para evitar cobranças duplicadas…":"Resuming your previous payment to avoid duplicate charges…","Estamos consultando a situação do pedido anterior. Não inicie uma nova cobrança enquanto ele estiver pendente.":"We are checking your previous order. Do not make another payment while it is pending.","Pagamento não concluído: ":"Payment not completed: ","Pagamento temporariamente indisponível. ":"Payment temporarily unavailable. ","Nenhuma cobrança foi realizada.":"No charge was made.","Tente novamente.":"Please try again.","Não foi possível consultar o pagamento.":"Could not load payment information.","Pagamento indisponível.":"Payment unavailable.","Preço indisponível. Nenhuma cobrança será iniciada.":"Price unavailable. No charge will be started.","O módulo de pagamento seguro não carregou.":"The secure payment form could not load.","Código de acesso ao pedido ausente":"Order access code missing","Identificação da obra divergente.":"Artwork does not match the payment.","Valor aprovado divergente.":"Approved amount does not match.","A troca de idioma não está disponível durante um pagamento em processamento.":"Language cannot be changed while a payment is being confirmed.","Atualizando idioma do pagamento…":"Changing payment language…","Pedido já está sendo processado.":"Your order is already being processed."},"es":{"Verificando pagamento seguro…":"Verificando el pago seguro…","Compra segura disponível aqui mesmo, via Mercado Pago.":"Pago seguro disponible aquí mediante Mercado Pago.","Conectando ao Mercado Pago…":"Conectando con Mercado Pago…","Pagamento aprovado!":"¡Pago aprobado!","Sua edição digital está disponível para download. Uma confirmação também pode chegar ao e-mail informado no pagamento.":"Tu obra digital está lista para descargar. También podrías recibir la confirmación por correo.","Baixar":"Descargar","sua obra":"tu obra","O pagamento foi aprovado, mas ainda não foi possível liberar o arquivo nesta tela. Entre em contato com nosso suporte.":"Pago aprobado, pero todavía no está disponible la descarga. Contacta con soporte.","Pagamento não aprovado. Você pode fechar esta janela e tentar novamente se desejar.":"Pago no aprobado. Puedes cerrar esta ventana e intentarlo de nuevo.","Pedido criado. A confirmação está sendo consultada; não faça outro pagamento.":"Pedido creado. Consultando la confirmación; no pagues dos veces.","Pagamento aguardando confirmação. Guarde o comprovante; uma confirmação também poderá chegar por e-mail.":"Esperando confirmación de pago. Guarda tu comprobante.","Pedido iniciado. Aguardando confirmação do Mercado Pago…":"Pedido creado. Esperando confirmación de Mercado Pago…","Pedido criado. Estamos verificando a confirmação do pagamento.":"Pedido creado. Estamos verificando la confirmación.","Pedido iniciado. Estamos verificando a confirmação, não é necessário repetir o pagamento.":"Estamos verificando tu pedido. No vuelvas a pagar.","Não foi possível carregar essa opção. Selecione outro meio de pagamento.":"No se pudo cargar esta opción. Elige otro medio de pago.","Retomando o pagamento anterior para evitar cobranças duplicadas…":"Reanudando el pago anterior para evitar cobros duplicados…","Estamos consultando a situação do pedido anterior. Não inicie uma nova cobrança enquanto ele estiver pendente.":"Estamos consultando tu pedido anterior. No inicies otro pago mientras esté pendiente.","Pagamento não concluído: ":"Pago no completado: ","Pagamento temporariamente indisponível. ":"Pago no disponible temporalmente. ","Nenhuma cobrança foi realizada.":"No se realizó ningún cobro.","Tente novamente.":"Inténtalo de nuevo.","Não foi possível consultar o pagamento.":"No se pudo consultar el pago.","Pagamento indisponível.":"Pago no disponible.","Preço indisponível. Nenhuma cobrança será iniciada.":"Precio no disponible. No se iniciará ningún cobro.","O módulo de pagamento seguro não carregou.":"No se pudo cargar el formulario seguro.","Código de acesso ao pedido ausente":"Falta el código de acceso del pedido","Identificação da obra divergente.":"La obra no coincide con el pago.","Valor aprovado divergente.":"El importe aprobado no coincide.","A troca de idioma não está disponível durante um pagamento em processamento.":"No puedes cambiar el idioma mientras se confirma un pago.","Atualizando idioma do pagamento…":"Actualizando el idioma del pago…","Pedido já está sendo processado.":"El pedido ya se está procesando."}};
+const CHECKOUT_LOCALES={pt:"pt-BR",en:"en-US",es:"es-MX"};
+function localeKey(raw){const s=String(raw||"").trim().toLowerCase();return /^pt(?:-|$)/.test(s)?"pt":/^en(?:-|$)/.test(s)?"en":/^es(?:-|$)/.test(s)?"es":null;}
+function findCheckoutLanguage(){
+ const params=new URLSearchParams(location.search);
+ const explicit=localeKey(params.get("lang"))||localeKey(params.get("locale"));if(explicit)return explicit;
+ for(const l of [...(navigator.languages||[]),navigator.language]){const value=localeKey(l);if(value)return value;}
+ return "en";
+}
+let language=findCheckoutLanguage();
+const tr=key=>CHECKOUT_I18N[language][key]||CHECKOUT_I18N.pt[key]||key;
+function translated(str){
+ const value=String(str||"");const dict=CHECKOUT_STATUS_I18N[language]||{};
+ if(dict[value])return dict[value];
+ for(const part of ["Pagamento não concluído: ","Pagamento temporariamente indisponível. "])if(value.startsWith(part))return (dict[part]||part)+value.slice(part.length);
+ return value;
+}
+const money=n=>Number(n).toLocaleString(CHECKOUT_LOCALES[language],{style:"currency",currency:"BRL"});
+function productLabel(sku,product){
+ if(sku===BUNDLE_ID)return tr("bundle");
+ if(language==="pt")return product.name;
+ return String(product.name||sku).replace(/ — Justiça Dourada$/,"")+" — "+tr("artSuffix");
+}
+function applyLanguage(){
+ dialog.lang=CHECKOUT_LOCALES[language];
+ const picker=el("checkoutLanguage");picker.value=language;picker.setAttribute("aria-label",tr("languageLabel"));
+ el("checkoutClose").setAttribute("aria-label",tr("close"));
+ for(const node of dialog.querySelectorAll("[data-checkout-i18n]"))node.textContent=tr(node.dataset.checkoutI18n);
+ if(config?.products?.[currentSku]){el("checkoutProductName").textContent=productLabel(currentSku,config.products[currentSku]);el("checkoutProductPrice").textContent=money(config.products[currentSku].price);}
+ if(!message.hidden)message.textContent=translated(message.dataset.originalText||message.textContent);
+}
+async function changeLanguage(next){
+ if(!Object.prototype.hasOwnProperty.call(CHECKOUT_LOCALES,next)||next===language)return;
+ if(opening||submitting||paymentId||orderAccess){
+  el("checkoutLanguage").value=language;setMessage("A troca de idioma não está disponível durante um pagamento em processamento.","note");return;
+ }
+ const openNow=!backdrop.hidden,sku=currentSku,previousFocus=lastFocus;
+ language=next;applyLanguage();setBusy(false,translated("Compra segura disponível aqui mesmo, via Mercado Pago."));
+ try{const url=new URL(location.href);url.searchParams.set("lang",next);history.replaceState(history.state,"",url.pathname+url.search+url.hash);}catch{}
+ mp=null;bricks=null;
+ if(!openNow||!sku)return;
+ el("checkoutLanguage").disabled=true;setMessage(translated("Atualizando idioma do pagamento…"),"note");
+ try{
+  await unmount();backdrop.hidden=true;document.body.classList.remove("checkout-open");currentSku="";
+  await open(sku);lastFocus=previousFocus;
+ }catch(e){setMessage(e.message||translated("Pagamento indisponível."),"error");}
+ finally{el("checkoutLanguage").disabled=false;}
+}
+
 const setBusy=(state,info)=>{triggers.forEach(b=>b.disabled=state);galleryStatus.textContent=info||"";const offerStatus=el("bundleCheckoutStatus");if(offerStatus)offerStatus.textContent=info||"";};
 async function readConfig(){
  const r=await fetch(API+"/api/config",{headers:{accept:"application/json"},cache:"no-store"});
@@ -18,7 +68,7 @@ async function readConfig(){
  if(!c.publicKey||!c.individualSalesEnabled||!["BRL"].includes(c.currency))throw Error("Pagamento indisponível.");
  for(const b of triggers){const sku=b.dataset.sku;if(!SKU.test(sku)||Math.abs(Number(c.products?.[sku]?.price)-expectedPrice(sku))>.001)throw Error("Preço indisponível. Nenhuma cobrança será iniciada.");}
  if(!window.MercadoPago)throw Error("O módulo de pagamento seguro não carregou.");
- config=c; if(!mp){mp=new MercadoPago(config.publicKey,{locale:"pt-BR"});bricks=mp.bricks();}
+ config=c; if(!mp){mp=new MercadoPago(config.publicKey,{locale:CHECKOUT_LOCALES[language]});bricks=mp.bricks();}
  return c;
 }
 async function unmount(){
@@ -29,6 +79,7 @@ async function unmount(){
 }
 function close(){
  if(timer)clearTimeout(timer);timer=null;epoch++;
+ el("checkoutLanguage").disabled=false;
  unmount().catch(()=>{});
  backdrop.hidden=true;document.body.classList.remove("checkout-open");
  currentSku="";opening=false;submitting=false;paymentId="";orderAccess="";
@@ -43,13 +94,14 @@ function validDownload(url){
 }
 function approved(info){
  clearTimeout(timer);timer=null;el("statusArea").hidden=true;el("paymentBrick_container").hidden=true;
+ el("checkoutLanguage").disabled=true;
  const area=el("checkoutSuccess");area.hidden=false;area.replaceChildren();
- const heading=document.createElement("h3");heading.textContent="Pagamento aprovado!";
- const desc=document.createElement("p");desc.textContent="Sua edição digital está disponível para download. Uma confirmação também pode chegar ao e-mail informado no pagamento.";
+ const heading=document.createElement("h3");heading.textContent=translated("Pagamento aprovado!");
+ const desc=document.createElement("p");desc.textContent=translated("Sua edição digital está disponível para download. Uma confirmação também pode chegar ao e-mail informado no pagamento.");
  area.append(heading,desc);
  const bundles=[...(Array.isArray(info.bundles)?info.bundles:[])].filter(x=>validDownload(x.url));
- for(const b of bundles){const a=document.createElement("a");a.href=b.url;a.rel="noopener noreferrer";a.className="checkout-download";a.textContent="Baixar "+(b.label||"sua obra")+" ↓";area.appendChild(a);}
- if(!bundles.length){const p=document.createElement("p");p.textContent="O pagamento foi aprovado, mas ainda não foi possível liberar o arquivo nesta tela. Entre em contato com nosso suporte.";area.append(p);}
+ for(const b of bundles){const a=document.createElement("a");a.href=b.url;a.rel="noopener noreferrer";a.className="checkout-download";a.textContent=translated("Baixar")+" "+(b.label||translated("sua obra"))+" ↓";area.appendChild(a);}
+ if(!bundles.length){const p=document.createElement("p");p.textContent=translated("O pagamento foi aprovado, mas ainda não foi possível liberar o arquivo nesta tela. Entre em contato com nosso suporte.");area.append(p);}
  try{sessionStorage.removeItem("juridica-order-pending");}catch{}
  setMessage("");
 }
@@ -95,7 +147,7 @@ async function open(sku){
   await readConfig();
   if(backdrop.hidden||currentSku!==sku)return;
   const product=config.products[sku];
-  el("checkoutProductName").textContent=product.name;
+  el("checkoutProductName").textContent=productLabel(sku,product);
   el("checkoutProductPrice").textContent=money(product.price);
   await unmount();
   paymentController=await bricks.create("payment","paymentBrick_container",{
@@ -110,14 +162,15 @@ async function open(sku){
     onSubmit:({selectedPaymentMethod,formData})=>new Promise((resolve,reject)=>{
       if(submitting||!formData){reject(Error("Pedido já está sendo processado."));return;}
       submitting=true;
+      el("checkoutLanguage").disabled=true;
       const idem=crypto.randomUUID?crypto.randomUUID():String(Date.now())+"-"+Math.random().toString(16).slice(2);
       const utm=new URLSearchParams(location.search),attribution={utm_source:"juridica.lumenanima.com",utm_medium:"referral",utm_campaign:"justica_dourada_16k_20261106",utm_content:sku};
       for(const key of ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"]){const val=utm.get(key);if(val&&/^[A-Za-z0-9_.-]{1,64}$/.test(val))attribution[key]=val;}
-      fetch(API+"/api/payments",{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":idem},body:JSON.stringify({productId:sku,selectedPaymentMethod,formData,locale:"pt",attribution})})
+      fetch(API+"/api/payments",{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":idem},body:JSON.stringify({productId:sku,selectedPaymentMethod,formData,locale:language,attribution})})
        .then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||!/^\d+$/.test(String(d.id||"")))throw Error(d.message||d.error||"Pagamento não concluído");if(!/^[a-f0-9]{64}$/.test(String(d.order_access||"")))throw Error("Código de acesso ao pedido ausente");paymentId=String(d.id);orderAccess=d.order_access;
-        try{sessionStorage.setItem("juridica-order-pending",JSON.stringify({id:paymentId,sku,token:orderAccess,at:Date.now()}));}catch{}
+        try{sessionStorage.setItem("juridica-order-pending",JSON.stringify({id:paymentId,sku,token:orderAccess,at:Date.now(),lang:language}));}catch{}
         resolve(); await showStatus(paymentId,orderAccess);
-       }).catch(err=>{submitting=false;setMessage("Pagamento não concluído: "+(err.message||"Tente novamente."),"error");reject(err);});
+       }).catch(err=>{submitting=false;el("checkoutLanguage").disabled=false;setMessage("Pagamento não concluído: "+(err.message||"Tente novamente."),"error");reject(err);});
     })
    }
   });
@@ -137,9 +190,10 @@ function pendingOrder(){
 async function resumePendingOrder(){
  const previous=pendingOrder();
  if(!previous||!backdrop.hidden||!config?.products?.[previous.sku])return;
+ const stored=localeKey(previous.lang);if(stored&&stored!==language){language=stored;mp=null;bricks=null;applyLanguage();await readConfig();}
  currentSku=previous.sku;paymentId=String(previous.id);orderAccess=previous.token;
- opening=true;epoch++;openDisplay();
- el("checkoutProductName").textContent=config.products[previous.sku].name;
+ opening=true;epoch++;openDisplay();el("checkoutLanguage").disabled=true;
+ el("checkoutProductName").textContent=productLabel(previous.sku,config.products[previous.sku]);
  el("checkoutProductPrice").textContent=money(config.products[previous.sku].price);
  el("paymentBrick_container").hidden=true;el("statusArea").hidden=true;el("checkoutSuccess").hidden=true;
  setMessage("Retomando o pagamento anterior para evitar cobranças duplicadas…","note");
@@ -152,9 +206,11 @@ async function resumePendingOrder(){
  }finally{opening=false;}
 }
 triggers.forEach(b=>b.addEventListener("click",()=>open(b.dataset.sku)));
+el("checkoutLanguage").addEventListener("change",()=>changeLanguage(el("checkoutLanguage").value));
 el("checkoutClose").addEventListener("click",close);
 backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
 document.addEventListener("keydown",e=>{if(backdrop.hidden)return;if(e.key==="Escape"){e.preventDefault();close();}if(e.key==="Tab"){const els=[...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled])')].filter(x=>x.offsetParent!==null);if(!els.length)return;const first=els[0],last=els[els.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
-setBusy(true,"Verificando pagamento seguro…");
-readConfig().then(async()=>{setBusy(false,"Compra segura disponível aqui mesmo, via Mercado Pago.");await resumePendingOrder();}).catch(err=>{setBusy(true,"Pagamento temporariamente indisponível. "+(err.message||"Tente novamente."));});
+applyLanguage();
+setBusy(true,translated("Verificando pagamento seguro…"));
+readConfig().then(async()=>{setBusy(false,translated("Compra segura disponível aqui mesmo, via Mercado Pago."));await resumePendingOrder();}).catch(err=>{setBusy(true,translated("Pagamento temporariamente indisponível. ")+translated(err.message||"Tente novamente."));});
 })();
