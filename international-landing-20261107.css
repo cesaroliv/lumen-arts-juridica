@@ -52,3 +52,5 @@
 @media(prefers-reduced-motion:reduce){.international-promo,.international-promo-button{transition:none!important}}
 /* Restore brand legibility over the dark cinematic hero (previous global text inheritance was dark). */
 .cinematic-header .brand{color:#fff1dd!important}
+/* Legal identification and private customer support in approved luxury footer. */
+footer .foot-registry{display:block;max-width:1000px;margin:15px auto 6px;font:400 11px/1.65 "DM Sans",Arial,sans-serif;color:#d6c5af;text-align:center;letter-spacing:0}footer .footer-whatsapp-action{display:inline-flex;margin:10px auto 6px;padding:10px 17px;border:1px solid #d1aa78;border-radius:3px;color:#f4e3ca;text-decoration:none;font:600 12px "DM Sans",Arial,sans-serif}footer .footer-whatsapp-action:hover{background:#e0bd8950}

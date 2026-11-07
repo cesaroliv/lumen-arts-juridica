@@ -42,11 +42,17 @@ function applyLanguage(){
  el("checkoutClose").setAttribute("aria-label",tr("close"));
  for(const node of dialog.querySelectorAll("[data-checkout-i18n]"))node.textContent=tr(node.dataset.checkoutI18n);
  for(const legalLink of dialog.querySelectorAll(".checkout-privacy a")){
-  const base=legalLink.href.includes("terms.html")?tr("terms"):tr("privacy");
-  const suffix=language==="pt"?" (em inglês)":language==="es"?" (en inglés)":"";
-  legalLink.textContent=base+suffix;
-  legalLink.setAttribute("hreflang","en");
-  legalLink.setAttribute("lang","en");
+  const isTerms=legalLink.href.includes("terms.html");
+  legalLink.href="/legal/"+language+"/"+(isTerms?"terms":"privacy")+".html";
+  legalLink.textContent=isTerms?tr("terms"):tr("privacy");
+  legalLink.setAttribute("hreflang",CHECKOUT_LOCALES[language]);
+  legalLink.setAttribute("lang",CHECKOUT_LOCALES[language]);
+ }
+ const support=el("checkoutSupportWhatsApp");
+ if(support){
+  support.textContent=language==="pt"?"Atendimento por WhatsApp ↗":language==="es"?"Soporte por WhatsApp ↗":"WhatsApp support ↗";
+  const msg=language==="pt"?"Olá! Preciso de atendimento sobre a coleção digital Justiça Dourada.":language==="es"?"¡Hola! Necesito ayuda con la colección digital Justiça Dourada.":"Hello! I need help with my Justiça Dourada digital art order.";
+  support.href="https://wa.me/5511978230487?text="+encodeURIComponent(msg);
  }
  if(config?.products?.[currentSku]){el("checkoutProductName").textContent=productLabel(currentSku,config.products[currentSku]);el("checkoutProductPrice").textContent=money(config.products[currentSku].price);}
  if(!message.hidden)message.textContent=translated(message.dataset.originalText||message.textContent);
