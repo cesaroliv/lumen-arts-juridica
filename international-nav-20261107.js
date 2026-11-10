@@ -22,6 +22,8 @@ document.querySelectorAll("a[data-language-switch]").forEach(a=>{
    const val=params.get(key);
    if(val&&/^[A-Za-z0-9_.-]{1,64}$/.test(val))target.searchParams.set(key,val);
   }
+  const fbclid=params.get("fbclid");
+  if(fbclid&&/^[A-Za-z0-9_-]{1,500}$/.test(fbclid))target.searchParams.set("fbclid",fbclid);
   if(location.hash)target.hash=location.hash;
   event.preventDefault();
   location.assign(target.toString());

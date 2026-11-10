@@ -108,6 +108,7 @@ function validDownload(url){
  try{const u=new URL(url);return u.origin===API&&/^\/api\/(download-bundle|download)\/[0-9]+\/[0-9]+$/.test(u.pathname);}catch{return false;}
 }
 function approved(info){
+ try{window.LumenAnalytics?.purchase(info)?.catch(()=>{});}catch{}
  clearTimeout(timer);timer=null;el("statusArea").hidden=true;el("paymentBrick_container").hidden=true;
  el("checkoutLanguage").disabled=true;
  const area=el("checkoutSuccess");area.hidden=false;area.replaceChildren();
@@ -173,7 +174,7 @@ async function open(sku){
     visual:{style:{theme:"default"}}
    },
    callbacks:{
-    onReady:()=>setMessage(""),
+    onReady:()=>{setMessage("");try{window.LumenAnalytics?.checkoutReady(sku,product.price)?.catch(()=>{});}catch{}},
     onError:error=>{console.error("Mercado Pago Payment Brick",error);setMessage("Não foi possível carregar essa opção. Selecione outro meio de pagamento.","error");},
     onSubmit:({selectedPaymentMethod,formData})=>new Promise((resolve,reject)=>{
       if(submitting||!formData){reject(Error("Pedido já está sendo processado."));return;}
