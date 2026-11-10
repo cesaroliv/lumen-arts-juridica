@@ -34,6 +34,8 @@
   if(pixelPromise)return pixelPromise;
   pixelPromise=new Promise(resolve=>{
    if(!window.fbq){const n=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments);};n.push=n;n.loaded=true;n.version="2.0";n.queue=[];window.fbq=n;if(!window._fbq)window._fbq=n;}
+   // Page views are explicit; internal history changes must not count as visits.
+   window.fbq.disablePushState=true;
    window.fbq("consent","grant");
    if(!pixelInitialized){window.fbq("set","autoConfig",false,PIXEL_ID);window.fbq("init",PIXEL_ID);pixelInitialized=true;}
    if(typeof window.fbq.callMethod==="function"){resolve(true);return;}
