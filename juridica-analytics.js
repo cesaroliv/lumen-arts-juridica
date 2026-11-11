@@ -24,7 +24,7 @@
   es:{title:"Tu privacidad",text:"Con tu permiso, usamos cookies de Meta y la API de conversiones para medir visitas y compras aprobadas y mejorar nuestros anuncios. Puedes comprar normalmente sin aceptar.",accept:"Aceptar medición",reject:"Rechazar",preferences:"Preferencias de cookies",policy:"Aviso de privacidad",gpc:"La señal de privacidad de tu navegador está activa. La medición publicitaria permanece desactivada."}
  }[lang];
  const locks=new Set(),sent=new Set();
- let choice=readChoice(),pixelPromise=null,pixelInitialized=false,panel=null,prefs=null,observer=null,activeCheckout=null,revocations=[],revocationFlush=null;
+ let choice=readChoice(),pixelPromise=null,pixelInitialized=false,panel=null,prefs=null,observer=null,activeCheckout=null,catalog=null,revocations=[],revocationFlush=null;
  function readConsentRecord(){try{const x=JSON.parse(localStorage.getItem(CONSENT_KEY)||"null");return x&&x.version===2&&typeof x.marketing==="boolean"&&Number.isFinite(x.at)&&x.at<=Date.now()&&(!x.marketing||UUID.test(String(x.token||"")))?x:null;}catch{return null;}}
  function readChoice(){const record=readConsentRecord();return record&&Date.now()-record.at<RETENTION?record:null;}
  function stored(storage,key){try{return storage.getItem(key);}catch{return null;}}
@@ -130,10 +130,14 @@
   return pixelPromise;
  }
  function eventId(){return "jd_"+(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+"_"+Math.random().toString(36).slice(2));}
- function payload(sku,amount){
-  const value=Number(amount),expected=sku===BUNDLE?47.9:24.9;
-  if(!SKU.test(String(sku))||!Number.isFinite(value)||Math.abs(value-expected)>.001)return null;
-  return {content_ids:[String(sku)],content_type:"product",value,currency:"BRL",num_items:1};
+ function payload(sku,amount,currency){
+  const value=Number(amount),minor=Math.round(value*100);
+  if(!SKU.test(String(sku))||!["BRL","USD"].includes(currency)||!Number.isFinite(value)||value<=0||!Number.isSafeInteger(minor)||Math.abs(value*100-minor)>.000001)return null;
+  return {content_ids:[String(sku)],content_type:"product",value,currency,num_items:1};
+ }
+ function setCatalog(value){
+  catalog=value&&["BRL","USD"].includes(value.currency)&&value.products?value:null;
+  if(catalog)visibleOffer();
  }
  async function once(name,data,key,session=false,id=eventId(),stillValid=null){
   if(!production||!permitted()||!isLanding||!cleanCheckoutUrl()||sent.has(key)||(session&&stored(sessionStorage,SESSION_PREFIX+key)))return false;
@@ -145,11 +149,15 @@
    return true;
   }catch{return false;}finally{locks.delete(lock);}
  }
- function viewContent(sku,amount){const data=payload(sku,amount);return data?once("ViewContent",data,"view:"+sku,true):Promise.resolve(false);}
- function checkoutReady(sku,amount){
-  const data=payload(sku,amount);if(data)activeCheckout={sku,amount};if(!data||!permitted())return Promise.resolve(false);
-  viewContent(sku,amount).catch(()=>{});
-  return once("InitiateCheckout",data,"checkout:"+sku,true);
+ function viewContent(sku,amount,currency){
+  const data=payload(sku,amount,currency),price=Number(catalog?.products?.[sku]?.price);
+  if(!catalog||catalog.currency!==currency||!Number.isFinite(price)||Math.abs(price-Number(amount))>.001)return Promise.resolve(false);
+  return data?once("ViewContent",data,"view:"+sku+":"+currency+":"+Math.round(data.value*100),true):Promise.resolve(false);
+ }
+ function checkoutReady(sku,amount,currency){
+  const data=payload(sku,amount,currency);if(data)activeCheckout={sku,amount,currency};if(!catalog||!data||!permitted())return Promise.resolve(false);
+  viewContent(sku,amount,currency).catch(()=>{});
+  return once("InitiateCheckout",data,"checkout:"+sku+":"+currency+":"+Math.round(data.value*100),true);
  }
  function purchaseLedger(){try{const x=JSON.parse(localStorage.getItem(PURCHASE_KEY)||"{}"),out={};for(const [key,at] of Object.entries(x)){if(/^[a-f0-9]{64}$/.test(key)&&Number.isFinite(at)&&at<=Date.now()&&Date.now()-at<RETENTION)out[key]=at;}return out;}catch{return {};}}
  function recentApproval(info){
@@ -158,11 +166,12 @@
   return Number.isFinite(at)&&age>=0&&age<PURCHASE_WINDOW;
  }
  async function purchase(info){
-  if(!permitted()||info?.status!=="approved"||info?.currency!=="BRL"||!crypto.subtle||!recentApproval(info))return false;
+  if(!permitted()||info?.status!=="approved"||!["BRL","USD"].includes(info?.currency)||!crypto.subtle||!recentApproval(info))return false;
   const isPayPal=info.provider==="paypal",paymentIdentity=isPayPal?info.payment_id:info.id;
   if(info.provider&&!["paypal","mercadopago"].includes(info.provider))return false;
+  if(!isPayPal&&info.currency!=="BRL")return false;
   if(isPayPal?(info.live_mode!==true||!/^[A-Z0-9]{1,32}$/.test(String(paymentIdentity||""))):!/^\d+$/.test(String(paymentIdentity||"")))return false;
-  const token=choice.token,data=payload(info?.product?.id,info?.amount);if(!data)return false;
+  const token=choice.token,data=payload(info?.product?.id,info?.amount,info.currency),expected=Number(info?.product?.price);if(!data||!Number.isFinite(expected)||Math.abs(expected-data.value)>.001)return false;
   const bytes=new TextEncoder().encode("lumen-juridica:purchase:"+(isPayPal?"paypal:":"")+String(paymentIdentity)+":"+info.product.id);
   const hash=[...new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))].map(x=>x.toString(16).padStart(2,"0")).join("");
   if(isPayPal&&info.event_id!=="jd_purchase_"+hash)return false;
@@ -173,7 +182,7 @@
  }
  function visibleOffer(){
   const offer=document.getElementById("pacote");if(!offer)return;
-  const r=offer.getBoundingClientRect();if(r.bottom>0&&r.top<window.innerHeight)viewContent(BUNDLE,47.9).catch(()=>{});
+  const r=offer.getBoundingClientRect(),price=catalog?.products?.[BUNDLE]?.price;if(catalog&&r.bottom>0&&r.top<window.innerHeight)viewContent(BUNDLE,price,catalog.currency).catch(()=>{});
  }
  function activate(){
   if(!permitted()){revokeBrowser();return;}
@@ -181,7 +190,7 @@
   if(pixelInitialized&&typeof window.fbq==="function")window.fbq("consent","grant");
   once("PageView",{},"page").catch(()=>{});
   visibleOffer();
-  if(activeCheckout&&!document.getElementById("checkoutBackdrop")?.hidden&&document.getElementById("paymentBrick_container")?.hidden===false)checkoutReady(activeCheckout.sku,activeCheckout.amount).catch(()=>{});
+  if(activeCheckout&&!document.getElementById("checkoutBackdrop")?.hidden&&(document.getElementById("paymentBrick_container")?.hidden===false||document.getElementById("paypalCheckoutArea")?.hidden===false))checkoutReady(activeCheckout.sku,activeCheckout.amount,activeCheckout.currency).catch(()=>{});
  }
  function choose(marketing){
   const previousToken=choice?.marketing?choice.token:null;
@@ -206,11 +215,11 @@
   const target=document.querySelector("footer .foot-links")||document.querySelector("footer .inner")||document.querySelector("footer");target?.appendChild(prefs);
   document.querySelectorAll("[data-cookie-preferences]").forEach(el=>el.addEventListener("click",preferences));
  }
- window.LumenAnalytics=Object.freeze({viewContent,checkoutReady,checkoutContext,purchase,preferences});
+ window.LumenAnalytics=Object.freeze({viewContent,checkoutReady,checkoutContext,purchase,preferences,setCatalog});
  try{localStorage.removeItem(LEGACY_CONSENT_KEY);}catch{}
  buildConsent();
  if(isLanding&&"IntersectionObserver" in window){
-  const offer=document.getElementById("pacote");if(offer){observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)viewContent(BUNDLE,47.9).catch(()=>{});},{threshold:.15});observer.observe(offer);}
+  const offer=document.getElementById("pacote");if(offer){observer=new IntersectionObserver(entries=>{for(const entry of entries)if(entry.isIntersecting)visibleOffer();},{threshold:.15});observer.observe(offer);}
  }
  window.addEventListener("storage",event=>{
   if(event.key===REVOCATION_KEY){flushRevocations().catch(()=>{});return;}
@@ -224,5 +233,7 @@
  window.addEventListener("pageshow",()=>{activate();flushRevocations().catch(()=>{});});
  window.addEventListener("focus",()=>{if(!permitted())revokeBrowser();});
  revokeExpiredChoice();activate();flushRevocations().catch(()=>{});
+ window.LumenPricing?.subscribe(setCatalog);
 })();
+
 
