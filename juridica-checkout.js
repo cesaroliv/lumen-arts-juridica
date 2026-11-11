@@ -151,6 +151,11 @@ async function showStatus(id,token){
  }catch(e){console.error("Falha ao mostrar status",e);setMessage("Pedido iniciado. Estamos verificando a confirmação, não é necessário repetir o pagamento.","note");}
  pollPayment(id,token,run);
 }
+function buildPaymentRequest(sku,selectedPaymentMethod,formData,attribution){
+ const body={productId:sku,selectedPaymentMethod,formData,locale:language,attribution};
+ try{const analytics=window.LumenAnalytics?.checkoutContext();if(analytics)body.analytics=analytics;}catch{}
+ return body;
+}
 async function open(sku){
  if(opening||!SKU.test(sku))return;
  const pending=pendingOrder();
@@ -183,7 +188,7 @@ async function open(sku){
       const idem=crypto.randomUUID?crypto.randomUUID():String(Date.now())+"-"+Math.random().toString(16).slice(2);
       const utm=new URLSearchParams(location.search),attribution={utm_source:"juridica.lumenanima.com",utm_medium:"referral",utm_campaign:"justica_dourada_16k_20261106",utm_content:sku};
       for(const key of ["utm_source","utm_medium","utm_campaign","utm_content","utm_term"]){const val=utm.get(key);if(val&&/^[A-Za-z0-9_.-]{1,64}$/.test(val))attribution[key]=val;}
-      fetch(API+"/api/payments",{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":idem},body:JSON.stringify({productId:sku,selectedPaymentMethod,formData,locale:language,attribution})})
+      fetch(API+"/api/payments",{method:"POST",headers:{"content-type":"application/json","x-idempotency-key":idem},body:JSON.stringify(buildPaymentRequest(sku,selectedPaymentMethod,formData,attribution))})
        .then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok||!/^\d+$/.test(String(d.id||"")))throw Error(d.message||d.error||"Pagamento não concluído");if(!/^[a-f0-9]{64}$/.test(String(d.order_access||"")))throw Error("Código de acesso ao pedido ausente");paymentId=String(d.id);orderAccess=d.order_access;
         try{sessionStorage.setItem("juridica-order-pending",JSON.stringify({id:paymentId,sku,token:orderAccess,at:Date.now(),lang:language}));}catch{}
         resolve(); await showStatus(paymentId,orderAccess);
