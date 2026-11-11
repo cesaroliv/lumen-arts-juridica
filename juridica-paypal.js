@@ -118,7 +118,7 @@
   }
   if(!configured(c))throw failure("paypal_disabled");
   const sdk=await loadSdk(c.mode);if(!current())return{unmount};
-  const instance=await sdk.createInstance({clientId:c.clientId,components:["paypal-payments"],pageType:"checkout"});
+  const instance=await sdk.createInstance({clientId:c.clientId,components:["paypal-payments"],pageType:"checkout",locale:options.locale==="pt"?"pt-BR":options.locale==="es"?"es-MX":"en-US"});
   if(!current())return{unmount};
   const eligible=await instance.findEligibleMethods({currencyCode:"BRL",amount:amount.toFixed(2)});
   if(!current())return{unmount};
