@@ -1,6 +1,6 @@
 /* Optional PayPal checkout adapter. The server controls availability and prices. */
 (()=>{"use strict";
- const API="https://lumen-digital-checkout.ccoliveira1.workers.dev",KEY="juridica-paypal-order-pending";
+ const API="https://lumen-digital-checkout.ccoliveira1.workers.dev",KEY="juridica-paypal-order-pending",PAID_KEY="juridica-paypal-paid-receipts-v1",RECEIPT_TTL=72*3600000;
  const ID=/^[A-Z0-9]{1,32}$/,TOKEN=/^[a-f0-9]{64}$/,SKU=/^art-justice-(?:(?:0[1-9]|10)-[a-z0-9-]+|four-16k)$/;
  let sdkPromise=null,sdkMode=null;
  function configured(c){return c?.enabled===true&&["sandbox","live"].includes(c.mode)&&c.currency==="BRL"&&/^[A-Za-z0-9_-]{10,200}$/.test(String(c.clientId||""));}
@@ -8,6 +8,22 @@
  function pendingOrder(){try{const x=JSON.parse(sessionStorage.getItem(KEY)||"null");return x&&x.provider==="paypal"&&ID.test(String(x.id))&&TOKEN.test(String(x.token))&&SKU.test(String(x.sku))&&["sandbox","live"].includes(x.mode)&&Number.isFinite(x.at)&&x.at<=Date.now()&&Date.now()-x.at<72*3600000?x:null;}catch{return null;}}
  function remember(x){try{sessionStorage.setItem(KEY,JSON.stringify(x));}catch{}}
  function forget(id){try{if(!id||pendingOrder()?.id===id)sessionStorage.removeItem(KEY);}catch{}}
+ function receiptEntry(x){
+  return x&&x.provider==="paypal"&&ID.test(String(x.id))&&TOKEN.test(String(x.token))&&SKU.test(String(x.sku))&&["sandbox","live"].includes(x.mode)&&Number.isFinite(x.at)&&x.at>0&&x.at<=Date.now()&&Date.now()-x.at<RECEIPT_TTL?{provider:"paypal",id:String(x.id),token:String(x.token),sku:String(x.sku),mode:x.mode,at:x.at}:null;
+ }
+ function writePaid(records){try{if(records.length)localStorage.setItem(PAID_KEY,JSON.stringify(records));else localStorage.removeItem(PAID_KEY);return true;}catch{return false;}}
+ function paidRecords(){
+  try{
+   const raw=localStorage.getItem(PAID_KEY);if(!raw)return[];
+   const data=raw.length<=16000?JSON.parse(raw):null,seen=new Set();
+   const records=(Array.isArray(data)&&data.length<=22?data:[]).map(receiptEntry).filter(Boolean).sort((a,b)=>b.at-a.at).filter(x=>{const key=x.mode+":"+x.sku;if(seen.has(key))return false;seen.add(key);return true;});
+   if(JSON.stringify(records)!==raw)writePaid(records);return records;
+  }catch{writePaid([]);return[];}
+ }
+ function paidOrder(sku,mode){if(!SKU.test(String(sku)))return null;const knownMode=["sandbox","live"].includes(mode)?mode:null;return paidRecords().find(x=>x.sku===sku&&(!knownMode||x.mode===knownMode))||null;}
+ function rememberPaid(order){const entry=receiptEntry(order);if(!entry)return false;return writePaid([...paidRecords().filter(x=>x.sku!==entry.sku||x.mode!==entry.mode),entry].sort((a,b)=>b.at-a.at).slice(0,22));}
+ function forgetPaid(order){if(order)writePaid(paidRecords().filter(x=>x.id!==order.id||x.sku!==order.sku||x.mode!==order.mode));}
+ function invalidReceipt(error){return error?.httpStatus===403&&error?.apiError==="ORDER_ACCESS_REQUIRED";}
  function failure(code){const e=new Error(code);e.code=code;return e;}
  function loadSdk(mode){
   if(sdkMode&&sdkMode!==mode)return Promise.reject(failure("sdk_mode_changed"));
@@ -21,7 +37,7 @@
  }
  async function request(path,options={}){
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
-  try{const r=await fetch(API+path,{...options,signal:controller.signal,cache:"no-store"}),data=await r.json().catch(()=>null);if(!r.ok||!data)throw failure("request_failed");return data;}
+  try{const r=await fetch(API+path,{...options,signal:controller.signal,cache:"no-store"}),data=await r.json().catch(()=>null);if(!r.ok||!data)throw Object.assign(failure("request_failed"),{httpStatus:r.status,apiError:data?.error});return data;}
   finally{clearTimeout(timer);}
  }
  function validateStatus(info,order,sku,amount,mode){
@@ -30,13 +46,14 @@
   return info;
  }
  async function mount(options){
-  const {container,sku,amount,configuration:c}=options;
+  const {container,sku,amount,configuration:c}=options,recoveryOnly=options.pending?.recoveryOnly===true;
   if(!SKU.test(String(sku))||!Number.isFinite(amount))throw failure("invalid_product");
+  if(recoveryOnly&&(!receiptEntry(options.pending)||options.pending.sku!==sku||(["sandbox","live"].includes(c?.mode)&&options.pending.mode!==c.mode)))throw failure("receipt_invalid");
   let active=true,busy=false,button=null,session=null,timer=null,attempt=null,capturePromise=null,creating=null,createKey=null,cancelRequested=false;
   const current=()=>active&&options.isCurrent();
   const signalBusy=value=>{busy=value;if(current()){if(button)button.disabled=value||!!attempt?.approvedByBuyer;options.onBusy?.(value);}};
   function unmount(){active=false;clearTimeout(timer);timer=null;container.replaceChildren();}
-  function clearAttempt(){if(attempt)forget(attempt.id);attempt=null;capturePromise=null;createKey=null;cancelRequested=false;options.onOrder?.(null);}
+  function clearAttempt(){if(attempt){forgetPaid(attempt);forget(attempt.id);}attempt=null;capturePromise=null;createKey=null;cancelRequested=false;options.onOrder?.(null);}
   function capturePending(info){return info?.capture_pending===true||info?.provider_status==="COMPLETED";}
   function definitelyUnpaid(info){return info?.status==="pending"&&["CREATED","PAYER_ACTION_REQUIRED"].includes(info.provider_status)&&info.capture_pending===false;}
   function resumable(info){return definitelyUnpaid(info)||(info?.status==="pending"&&info.provider_status==="APPROVED"&&info.capture_pending===false);}
@@ -44,9 +61,9 @@
   function status(info){
    if(!current())return;
    validateStatus(info,attempt,sku,amount,attempt.mode);
+   if(info.status==="approved"&&rememberPaid(attempt))forget(attempt.id);
    signalBusy(false);options.onStatus(info);
-   if(info.status==="approved")forget(attempt.id);
-   else if(["rejected","cancelled","refunded","charged_back","failed"].includes(info.status)){clearAttempt();if(button)button.disabled=false;}
+   if(["rejected","cancelled","refunded","charged_back","failed"].includes(info.status)){clearAttempt();if(button)button.disabled=false;}
   }
   async function poll(count=0){
    if(!current()||!attempt)return;
@@ -54,12 +71,12 @@
     const info=await readStatus();
     if(cancelRequested&&definitelyUnpaid(info)&&!capturePromise){clearAttempt();signalBusy(false);options.onCancel?.();return;}
     status(info);if(info.status!=="pending")return;
-   }catch{if(current())options.onPending?.();}
+   }catch(error){if(current()){if(recoveryOnly&&invalidReceipt(error)){clearAttempt();signalBusy(false);options.onError?.("receipt_invalid");return;}options.onPending?.();}}
    if(current()&&count<119)timer=setTimeout(()=>poll(count+1),3000);
   }
   async function capture(){
    if(capturePromise)return capturePromise;
-   if(!attempt||!current())return;
+   if(!attempt||!current()||recoveryOnly)return;
    cancelRequested=false;attempt.approvedByBuyer=true;remember(attempt);signalBusy(true);
    capturePromise=(async()=>{
     try{
@@ -70,6 +87,7 @@
    return capturePromise;
   }
   async function createOrder(){
+   if(recoveryOnly)throw failure("recovery_only");
    if(attempt)return{orderId:attempt.id};
    if(creating)return creating;
    if(!createKey)createKey=crypto.randomUUID();
@@ -107,6 +125,7 @@
    try{
     const info=await readStatus();if(!current())return{unmount};
     if(info.status!=="pending"){status(info);return{unmount};}
+    if(recoveryOnly){signalBusy(false);options.onPending?.();poll();return{unmount};}
     if(capturePending(info)){
      attempt.approvedByBuyer=true;remember(attempt);signalBusy(false);options.onPending?.();
      poll();
@@ -114,7 +133,7 @@
     }
     if(!resumable(info)){signalBusy(false);options.onPending?.();poll();return{unmount};}
     attempt.approvedByBuyer=false;remember(attempt);signalBusy(false);
-   }catch{if(current()){signalBusy(false);options.onPending?.();poll();}return{unmount};}
+   }catch(error){if(current()){signalBusy(false);if(recoveryOnly&&invalidReceipt(error)){clearAttempt();options.onError?.("receipt_invalid");}else{options.onPending?.();poll();}}return{unmount};}
   }
   if(!configured(c))throw failure("paypal_disabled");
   const sdk=await loadSdk(c.mode);if(!current())return{unmount};
@@ -139,6 +158,6 @@
   container.replaceChildren(button);options.onReady?.();
   return{unmount};
  }
- window.LumenPayPal=Object.freeze({configured,readConfiguration,pendingOrder,mount});
+ window.LumenPayPal=Object.freeze({configured,readConfiguration,pendingOrder,paidOrder,mount});
 })();
 
