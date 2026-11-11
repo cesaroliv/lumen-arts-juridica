@@ -5,6 +5,15 @@
  const DAY=86400000,RETENTION=180*DAY,REVOCATION_RETENTION=30*DAY,PURCHASE_WINDOW=47*60*60*1000,BUNDLE="art-justice-four-16k";
  const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
  const SKU=/^art-justice-(?:(?:0[1-9]|10)-[a-z0-9-]+|four-16k)$/;
+ function cleanCheckoutUrl(){
+  try{
+   const url=new URL(location.href);let changed=false;
+   for(const key of [...url.searchParams.keys()])if(/^(?:token|payerid|paymentid|payment_id|orderid|order_id|order_access|consent_token|ba_token)$/i.test(key)){url.searchParams.delete(key);changed=true;}
+   if(changed)history.replaceState(history.state,"",url.pathname+url.search+url.hash);
+   return true;
+  }catch{return false;}
+ }
+ cleanCheckoutUrl();
  const production=location.origin===SITE_ORIGIN;
  const isLanding=/^\/(?:(?:en|es)\/)?(?:index\.html)?$/.test(location.pathname);
  const controlsPage=isLanding||/^\/legal\/(?:pt|en|es)\/privacy\.html$/.test(location.pathname);
@@ -94,7 +103,7 @@
   try{const entry=document.cookie.split(";").map(x=>x.trim()).find(x=>x.startsWith(name+"="));if(!entry)return null;const value=decodeURIComponent(entry.slice(name.length+1));return pattern.test(value)?value:null;}catch{return null;}
  }
  function checkoutContext(){
-  if(!production||!isLanding||!permitted())return null;
+  if(!production||!isLanding||!permitted()||!cleanCheckoutUrl())return null;
   const pageUrl=location.origin+location.pathname.replace(/index\.html$/,"");
   const context={consent:true,consent_version:2,consent_at:choice.at,consent_token:choice.token,page_url:pageUrl};
   const fbp=readMetaCookie("_fbp",/^fb\.\d{1,3}\.\d{13}\.\d{1,30}$/),fbc=readMetaCookie("_fbc",/^fb\.\d{1,3}\.\d{13}\.[A-Za-z0-9_-]{1,500}$/);
@@ -102,7 +111,7 @@
   return context;
  }
  function loadPixel(){
-  if(!production||!isLanding||!permitted()||!/^\d{5,25}$/.test(PIXEL_ID))return Promise.resolve(false);
+  if(!production||!isLanding||!permitted()||!cleanCheckoutUrl()||!/^\d{5,25}$/.test(PIXEL_ID))return Promise.resolve(false);
   if(pixelPromise)return pixelPromise;
   pixelPromise=new Promise(resolve=>{
    if(!window.fbq){const n=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments);};n.push=n;n.loaded=true;n.version="2.0";n.queue=[];window.fbq=n;if(!window._fbq)window._fbq=n;}
@@ -127,10 +136,10 @@
   return {content_ids:[String(sku)],content_type:"product",value,currency:"BRL",num_items:1};
  }
  async function once(name,data,key,session=false,id=eventId(),stillValid=null){
-  if(!production||!permitted()||!isLanding||sent.has(key)||(session&&stored(sessionStorage,SESSION_PREFIX+key)))return false;
+  if(!production||!permitted()||!isLanding||!cleanCheckoutUrl()||sent.has(key)||(session&&stored(sessionStorage,SESSION_PREFIX+key)))return false;
   const token=choice.token,lock=token+":"+key;if(locks.has(lock))return false;locks.add(lock);
   try{
-   if(!await loadPixel()||!permitted()||choice.token!==token||sent.has(key)||(stillValid&&!stillValid()))return false;
+   if(!await loadPixel()||!permitted()||!cleanCheckoutUrl()||choice.token!==token||sent.has(key)||(stillValid&&!stillValid()))return false;
    window.fbq("trackSingle",PIXEL_ID,name,data,{eventID:id});
    sent.add(key);if(session)save(sessionStorage,SESSION_PREFIX+key,String(Date.now()));
    return true;
@@ -149,10 +158,14 @@
   return Number.isFinite(at)&&age>=0&&age<PURCHASE_WINDOW;
  }
  async function purchase(info){
-  if(!permitted()||info?.status!=="approved"||info?.currency!=="BRL"||!/^\d+$/.test(String(info?.id||""))||!crypto.subtle||!recentApproval(info))return false;
+  if(!permitted()||info?.status!=="approved"||info?.currency!=="BRL"||!crypto.subtle||!recentApproval(info))return false;
+  const isPayPal=info.provider==="paypal",paymentIdentity=isPayPal?info.payment_id:info.id;
+  if(info.provider&&!["paypal","mercadopago"].includes(info.provider))return false;
+  if(isPayPal?(info.live_mode!==true||!/^[A-Z0-9]{1,32}$/.test(String(paymentIdentity||""))):!/^\d+$/.test(String(paymentIdentity||"")))return false;
   const token=choice.token,data=payload(info?.product?.id,info?.amount);if(!data)return false;
-  const bytes=new TextEncoder().encode("lumen-juridica:purchase:"+String(info.id)+":"+info.product.id);
+  const bytes=new TextEncoder().encode("lumen-juridica:purchase:"+(isPayPal?"paypal:":"")+String(paymentIdentity)+":"+info.product.id);
   const hash=[...new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))].map(x=>x.toString(16).padStart(2,"0")).join("");
+  if(isPayPal&&info.event_id!=="jd_purchase_"+hash)return false;
   const ledger=purchaseLedger();if(ledger[hash]||!permitted()||choice.token!==token)return false;
   const ok=await once("Purchase",data,"purchase:"+hash,false,"jd_purchase_"+hash,()=>recentApproval(info));
   if(ok){const latest=purchaseLedger();latest[hash]=Date.now();save(localStorage,PURCHASE_KEY,JSON.stringify(latest));}
@@ -212,3 +225,4 @@
  window.addEventListener("focus",()=>{if(!permitted())revokeBrowser();});
  revokeExpiredChoice();activate();flushRevocations().catch(()=>{});
 })();
+

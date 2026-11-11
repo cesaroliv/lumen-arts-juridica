@@ -24,3 +24,14 @@ button.art-figure{width:100%;border:0;border-radius:0;padding:0;cursor:pointer;t
 }
 /* Private support inside existing Payment Brick modal. */
 .checkout-support{margin:15px 0 6px;text-align:right}.checkout-support a{display:inline-block;font:600 12px Arial,sans-serif;color:#79512f;border-bottom:1px solid #b08a62;padding:4px 0;text-decoration:none}.checkout-support a:hover{color:#412b1b}
+/* Payment provider choices reuse the existing checkout palette. */
+.checkout-provider-picker[hidden],.checkout-paypal-area[hidden]{display:none!important}
+.checkout-provider-picker{border:0;padding:0;margin:0 0 20px;display:flex;gap:10px;flex-wrap:wrap}
+.checkout-provider-picker legend{font:600 12px/1.5 Arial,sans-serif;padding:0;margin-bottom:8px;color:#4b4033}
+.checkout-provider-picker button{flex:1;min-width:120px;border:1px solid #c6b592;border-radius:5px;background:#fff;color:#3d3327;padding:12px 16px;font:600 14px Arial,sans-serif;cursor:pointer}
+.checkout-provider-picker button[aria-pressed=true]{background:#182b23;color:#f7eee0;border-color:#182b23}
+.checkout-provider-picker button:disabled{opacity:.65;cursor:not-allowed}
+.checkout-provider-picker button:focus-visible{outline:3px solid #a98b58;outline-offset:3px}
+.checkout-paypal-area{min-height:110px;padding:12px 0}
+.checkout-paypal-area p{font:400 12px/1.65 Arial,sans-serif;color:#6e604f;margin:0 0 15px}
+#paypalCheckout_container{max-width:440px;margin:0 auto}
